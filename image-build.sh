@@ -216,6 +216,13 @@ EOM
     mkdir -p "${MACHINE}/usr/share/backgrounds"
     cp ubuntu-butterfly.png "${MACHINE}/usr/share/backgrounds/ubuntu-butterfly.png"
 
+    # Set fish as the default shell
+    machinespawn run "${TARGET_NAME}" apt-get -y install fish
+    sed -i "${MACHINE}/etc/adduser.conf" -e 's/^#DSHELL.*/DSHELL=\/usr\/bin\/fish/'
+
+    # Remove fish.desktop, as we already have tilix
+    rm "${MACHINE}/usr/share/applications/fish.desktop"
+
     # Create custom panel layout
     mkdir -p "${MACHINE}/usr/share/gnome-panel/layouts"
     cat <<EOM > "${MACHINE}/usr/share/gnome-panel/layouts/ubuntu-butterfly.layout"
