@@ -15,6 +15,9 @@ The `image-buiild.sh` script will install the required software on the host and 
  - A copy of [`machinespawn`](https://github.com/wimpysworld/machinespawn) will be dropped in `/usr/local/bin` if a copy is not found in your `$PATH`.
    - `machinespawn` is also alpha software.
  - No hashes are generated, yet.
+ - GNOME Flashback is the default desktop, just so the Ubiquity installer can function.
+   - Weston and Wayfire are included and can be logged in to as a session or launched under GNOME Flashback.
+   - **Wayfire needs configuring, it doesn't actually do anything right now.**
 
 ## Reference
 
