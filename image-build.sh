@@ -36,11 +36,12 @@ GRUB_INSTALL_LABEL="Install ${TARGET_DISTRO_NAME}"
 
 # Packages to be removed from the target system after installation completes succesfully
 TARGET_PACKAGE_REMOVE="
-    ubiquity \
     casper \
     discover \
     laptop-detect \
     os-prober \
+    ubiquity \
+    ubuntu-butterfly-live-settings \
 "
 
 function host_setup() {
@@ -69,14 +70,20 @@ function bootstrap_container() {
 }
 
 function install_debs() {
-    # Install ubuntu-standard
+    # Add support package repositories. Required until we get packages uploaded
+    # to the official Ubuntu repositories.
     machinespawn run "${TARGET_NAME}" apt-get -y update
+    machinespawn run "${TARGET_NAME}" apt-get -y install software-properties-common
+    machinespawn run "${TARGET_NAME}" apt-add-repository -y ppa:butterfly-devs/ubuntu-butterfly-stable
+
+    # Install ubuntu-standard
     machinespawn run "${TARGET_NAME}" apt-get -y install ubuntu-standard snapd
 
     # Install Live image packages
     machinespawn run "${TARGET_NAME}" apt-get -y install \
         casper discover laptop-detect memtest86+ os-prober grub-common \
-        grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common locales
+        grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common locales \
+        ubuntu-butterfly-live-settings
 
     # Install kernel
     machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install "${TARGET_KERNEL_PACKAGE}"
@@ -86,82 +93,14 @@ function install_debs() {
         ubiquity ubiquity-casper ubiquity-frontend-gtk ubiquity-slideshow-ubuntu \
         ubiquity-ubuntu-artwork
 
-    # Repository management
-    machinespawn run "${TARGET_NAME}" apt-get -y install software-properties-common
-
     # Display manager
     machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install \
         lightdm lightdm-gtk-greeter yaru-theme-gtk yaru-theme-icon yaru-theme-sound \
         yaru-theme-unity
 
-    mkdir -p "${MACHINE}/usr/share/lightdm/lightdm-gtk-greeter.conf.d/"
-    cat <<EOM > "${MACHINE}/usr/share/lightdm/lightdm-gtk-greeter.conf.d/30-ubuntu-butterfly.conf"
-# LightDM GTK+ Configuration
-# Available configuration options listed below.
-#
-# Appearance:
-#  theme-name = GTK+ theme to use
-#  icon-theme-name = Icon theme to use
-#  cursor-theme-name = Cursor theme to use
-#  cursor-theme-size = Cursor size to use
-#  background = Background file to use, either an image path or a color (e.g. #772953)
-#  user-background = false|true ("true" by default)  Display user background (if available)
-#  transition-duration = Length of time (in milliseconds) to transition between background images ("500" by default)
-#  transition-type = ease-in-out|linear|none  ("ease-in-out" by default)
-#
-# Fonts:
-#  font-name = Font to use
-#  xft-antialias = false|true  Whether to antialias Xft fonts
-#  xft-dpi = Resolution for Xft in dots per inch (e.g. 96)
-#  xft-hintstyle = none|slight|medium|hintfull  What degree of hinting to use
-#  xft-rgba = none|rgb|bgr|vrgb|vbgr  Type of subpixel antialiasing
-#
-# Login window:
-#  active-monitor = Monitor to display greeter window (name or number). Use #cursor value to display greeter at monitor with cursor. Can be a semicolon separated list
-#  position = x y ("50% 50%" by default)  Login window position
-#  default-user-image = Image used as default user icon, path or #icon-name
-#  hide-user-image = false|true ("false" by default)
-#
-# Panel:
-#  panel-position = top|bottom ("top" by default)
-#  clock-format = strftime-format string, e.g. %H:%M
-#  indicators = semi-colon ";" separated list of allowed indicator modules. Built-in indicators include "~a11y", "~language", "~session", "~power", "~clock", "~host", "~spacer". Unity indicators can be represented by short name (e.g. "sound", "power"), service file name, or absolute path
-#
-# Accessibility:
-#  a11y-states = states of accessibility features: "name" - save state on exit, "-name" - disabled at start (default value for unlisted), "+name" - enabled at start. Allowed names: contrast, font, keyboard, reader.
-#  keyboard = command to launch on-screen keyboard (e.g. "onboard")
-#  keyboard-position = x y[;width height] ("50%,center -0;50% 25%" by default)  Works only for "onboard"
-#  reader = command to launch screen reader (e.g. "orca")
-#  at-spi-enabled = false|true ("true" by default) Enables accessibility at-spi-command if the greeter is built with it enabled
-#
-# Security:
-#  allow-debugging = false|true ("false" by default)
-#  screensaver-timeout = Timeout (in seconds) until the screen blanks when the greeter is called as lockscreen
-#
-# Template for per-monitor configuration:
-#  [monitor: name]
-#  background = overrides default value
-#  user-background = overrides default value
-#  laptop = false|true ("false" by default) Marks monitor as laptop display
-#  transition-duration = overrides default value
-#
-
-[greeter]
-background=/usr/share/backgrounds/ubuntu-butterfly.png
-theme-name=Yaru-red-dark
-icon-theme-name=Yaru-red
-cursor-theme-name=Yaru
-font-name=Ubuntu 11
-xft-antialias=true
-xft-dpi=96
-xft-hintstyle=slight
-xft-rgba=rgb
-indicators=~host;~spacer;~clock;~spacer;~session;~language;~a11y;~power;
-clock-format=%d %b, %H:%M
-active-monitor=#cursor
-position = 15%,start 50%,center
-user-background = false
-EOM
+    # Ubuntu Butterfly
+    machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install \
+        ubuntu-butterfly-default-settings
 
     # Pipewire
     machinespawn run "${TARGET_NAME}" apt-get -y install \
@@ -205,112 +144,6 @@ EOM
     # Wallpaper
     mkdir -p "${MACHINE}/usr/share/backgrounds"
     cp ubuntu-butterfly.png "${MACHINE}/usr/share/backgrounds/ubuntu-butterfly.png"
-
-    # Set fish as the default shell
-    machinespawn run "${TARGET_NAME}" apt-get -y install fish
-    sed -i "${MACHINE}/etc/adduser.conf" -e 's/^#DSHELL.*/DSHELL=\/usr\/bin\/fish/'
-
-    # Create custom panel layout
-    mkdir -p "${MACHINE}/usr/share/gnome-panel/layouts"
-    cat <<EOM > "${MACHINE}/usr/share/gnome-panel/layouts/ubuntu-butterfly.layout"
-[Toplevel top-panel]
-expand=true
-orientation=top
-size=26
-
-[Object menu-bar]
-object-iid=org.gnome.gnome-panel.menu::menu-bar
-toplevel-id=top-panel
-pack-index=0
-
-[Object window-list]
-object-iid=org.gnome.gnome-panel.wncklet::window-list
-toplevel-id=top-panel
-pack-index=1
-
-[Object indicators]
-object-iid=IndicatorAppletCompleteFactory::IndicatorAppletComplete
-toplevel-id=top-panel
-pack-type=end
-pack-index=0
-EOM
-
-    # Create gschema override
-    cat <<EOM > "${MACHINE}/usr/share/glib-2.0/schemas/90_ubuntu-butterfly.gschema.override"
-[org.gnome.desktop.background:GNOME-Flashback]
-color-shading-type='vertical'
-picture-uri='file:///usr/share/backgrounds/ubuntu-butterfly.png'
-primary-color='#FF135B'
-secondary-color='#F096AE'
-
-[org.gnome.desktop.datetime:GNOME-Flashback]
-automatic-timezone=true
-
-[org.gnome.desktop.interface:GNOME-Flashback]
-color-scheme='prefer-dark'
-cursor-theme='Yaru'
-document-font-name='Ubuntu 11'
-enable-hot-corners=false
-font-name='Ubuntu 11'
-gtk-theme='Yaru-red-dark'
-icon-theme='Yaru-red-dark'
-monospace-font-name='Ubuntu Mono 13'
-
-[org.gnome.desktop.lockdown:GNOME-Flashback]
-disable-printing=true
-disable-print-setup=true
-disable-user-switching=true
-
-[org.gnome.desktop.media-handling:GNOME-Flashback]
-automount-open=false
-
-[org.gnome.desktop.privacy:GNOME-Flashback]
-remember-app-usage=false
-remember-recent-files=false
-report-technical-problems=false
-send-software-usage-stats=false
-
-[org.gnome.desktop.screensaver:GNOME-Flashback]
-color-shading-type='vertical'
-lock-enabled=false
-picture-uri='file:///usr/share/backgrounds/ubuntu-butterfly.png'
-primary-color='#FF135B'
-secondary-color='#F096AE'
-user-switch-enabled=false
-
-[org.gnome.desktop.session:GNOME-Flashback]
-idle-delay=0
-
-[org.gnome.desktop.sound:GNOME-Flashback]
-theme-name='Yaru'
-
-[org.gnome.desktop.wm.preferences:GNOME-Flashback]
-button-layout=':minimize,maximize,close'
-theme='Yaru'
-titlebar-font='Ubuntu Bold 11'
-titlebar-uses-system-font=false
-
-[org.gnome.gedit.preferences.editor]
-scheme='Yaru-dark'
-editor-font='Ubuntu Mono 13'
-
-[org.gnome.gnome-flashback.desktop.background:GNOME-Flashback]
-fade=true
-
-[org.gnome.gnome-flashback.desktop.icons:GNOME-Flashback]
-show-home=false
-show-trash=false
-
-[org.gnome.metacity:GNOME-Flashback]
-alt-tab-thumbnails=true
-
-[org.gnome.metacity.theme:GNOME-Flashback]
-name='Yaru'
-
-[org.gnome.gnome-panel.general:GNOME-Flashback]
-default-layout='ubuntu-butterfly'
-EOM
-    machinespawn run "${TARGET_NAME}" glib-compile-schemas /usr/share/glib-2.0/schemas/
 
     # Plymouth
     machinespawn run "${TARGET_NAME}" apt-get -y install plymouth-theme-spinner
