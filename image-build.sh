@@ -400,7 +400,7 @@ function install_snaps() {
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
 
         # Download any required base snaps
-        if snap info --verbose "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > /tmp/${SNAP_NAME}.info; then
+        if snap info --verbose "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > /tmp/"${SNAP_NAME}".info; then
             if grep -q '^base:' "/tmp/${SNAP_NAME}.info"; then
                 BASE_SNAP=$(awk '/^base:/ {print $2}' "/tmp/${SNAP_NAME}.info")
                 snap_preseed "${BASE_SNAP}" stable
@@ -489,11 +489,11 @@ function build_image() {
     mkdir -p image/{casper,isolinux,install}
 
     # copy kernel files
-    cp -v ${MACHINE}/boot/vmlinuz-**-**-generic image/casper/vmlinuz
-    cp -v ${MACHINE}/boot/initrd.img-**-**-generic image/casper/initrd
+    cp -v "${MACHINE}"/boot/vmlinuz-**-**-generic image/casper/vmlinuz
+    cp -v "${MACHINE}"/boot/initrd.img-**-**-generic image/casper/initrd
 
     # memtest86
-    cp -v ${MACHINE}/boot/memtest86+.bin image/install/memtest86+
+    cp -v "${MACHINE}"/boot/memtest86+.bin image/install/memtest86+
     wget --quiet --show-progress --progress=bar:force:noscroll "https://www.memtest86.com/downloads/memtest86-usb.zip" -O image/install/memtest86-usb.zip
     unzip -p image/install/memtest86-usb.zip memtest86-usb.img > image/install/memtest86
     rm -f image/install/memtest86-usb.zip
@@ -547,7 +547,7 @@ EOF
     clean_up
 
     # compress rootfs
-    mksquashfs ${MACHINE} image/casper/filesystem.squashfs \
+    mksquashfs "${MACHINE}" image/casper/filesystem.squashfs \
         -noappend -no-duplicates -no-recovery \
         -wildcards \
         -e "var/cache/apt/archives/*" \
