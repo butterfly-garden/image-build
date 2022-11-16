@@ -68,7 +68,7 @@ function bootstrap_container() {
     machinespawn bootstrap ubuntu-${TARGET_UBUNTU_VERSION} "${TARGET_NAME}" "${TARGET_ARCH}"
 }
 
-function install_os() {
+function install_debs() {
     # Install ubuntu-standard
     machinespawn run "${TARGET_NAME}" apt-get -y update
     machinespawn run "${TARGET_NAME}" apt-get -y install ubuntu-standard snapd
@@ -491,5 +491,5 @@ EOF
 
 host_setup
 bootstrap_container
-install_os
+install_debs
 build_image
