@@ -120,6 +120,8 @@ function install_debs() {
         yaru-theme-unity
 
     # Instruct netplan to hand all network management to NetworkManager
+    #  - I think the file is added via livecd-rootfs in the official Ubuntu images
+    #    and should therefore not be packaged
     cat <<EOM > "${MACHINE}/etc/netplan/01-network-manager-all.yaml"
 # Let NetworkManager manage all devices on this system
 network:
@@ -195,6 +197,8 @@ EOF
 function install_snaps() {
     local ACCOUNT_KEY=""
     local BASE_SNAP=""
+
+    # Declare snaps to potentially seed in the image, with dependencies first.
     local SNAPS_THEME="snapd-desktop-integration gtk-common-themes"
     local SNAPS_CHROMIUM="cups gnome-3-38-2004 chromium"
     local SNAPS_FIREFOX="gnome-3-38-2004 firefox"
@@ -221,6 +225,7 @@ function install_snaps() {
     # Download the snaps
     for SNAP_NAME in ${SNAPS_ALL}; do
         # snapd-desktop-integration is not available in stable for armhf yet
+        # so use candidate for now
         case "${SNAP_NAME}" in
             chromium) SNAP_CHANNEL="stable";;
             cups) SNAP_CHANNEL="stable";;
