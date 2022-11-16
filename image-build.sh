@@ -346,16 +346,16 @@ function snap_preseed() {
 EOF
 
     # Process classic snaps
-    if [ -e "/tmp/${SNAP_NAME}.info" ]; then
-        SNAP_CONFINEMENT=$(grep confinement "/tmp/${SNAP_NAME}.info" | cut -d':' -f2 | sed 's/ //g')
-        echo "${SNAP_CONFINEMENT}"
+    if [ -e /tmp/"${SNAP_NAME}".info ]; then
+        SNAP_CONFINEMENT=$(grep confinement /tmp/"${SNAP_NAME}".info | cut -d':' -f2 | sed 's/ //g')
+        echo "*** ${SNAP_CONFINEMENT} ***"
         case "${SNAP_CONFINEMENT}" in
-            *classic*) echo "    classic: true" >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml;;
+            classic) echo "    classic: true" >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml;;
         esac
     fi
 
     echo -n "    file: " >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml
-    SNAP_FILE=$(ls -1 "${MACHINE}"/var/lib/snapd/seed/snaps/${SNAP_NAME}_*.snap)
+    SNAP_FILE=$(ls -1 "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"_*.snap)
     basename "${SNAP_FILE}" >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml
 }
 
@@ -367,7 +367,7 @@ function install_snaps() {
     local SNAPS_FIREFOX="gnome-3-38-2004 firefox"
     local SNAPS_STORE="gnome-42-2204 snap-store"
     local SNAPS_INSTALLER="ubuntu-desktop-installer"
-    local SNAPS_ALL="${SNAPS_THEME} ${SNAPS_FIREFOX} ${SNAPS_STORE}"
+    local SNAPS_ALL="${SNAPS_THEME} ${SNAPS_FIREFOX} ${SNAPS_STORE} ${SNAPS_INSTALLER}"
 
     local SNAP_CHANNEL=""
     local SNAP_PRESEED_FAILED=0
@@ -400,7 +400,7 @@ function install_snaps() {
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
 
         # Download any required base snaps
-        if snap info --verbose "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > "/tmp/${SNAP_NAME}.info"; then
+        if snap info --verbose "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > /tmp/${SNAP_NAME}.info; then
             if grep -q '^base:' "/tmp/${SNAP_NAME}.info"; then
                 BASE_SNAP=$(awk '/^base:/ {print $2}' "/tmp/${SNAP_NAME}.info")
                 snap_preseed "${BASE_SNAP}" stable
@@ -442,7 +442,7 @@ function install_snaps() {
             mount --make-private "${MOUNT}"
             umount -l "${MOUNT}"
             udevadm settle
-            sleep 5
+            sleep 2
         done
 
         if [ ${SNAP_PRESEED_FAILED} -eq 1 ]; then
