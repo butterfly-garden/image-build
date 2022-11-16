@@ -204,6 +204,8 @@ function install_snaps() {
     local SNAPS_FIREFOX="gnome-3-38-2004 firefox"
     local SNAPS_STORE="gnome-42-2204 snap-store"
     local SNAPS_INSTALLER="ubuntu-desktop-installer"
+    local SNAPS_FIRMWARE="firmware-updater"
+    local SNAPS_WORKSHOPS="lxd workshops"
     local SNAPS_ALL="${SNAPS_THEME} ${SNAPS_FIREFOX} ${SNAPS_STORE} ${SNAPS_INSTALLER}"
 
     local SNAP_CHANNEL=""
@@ -227,12 +229,13 @@ function install_snaps() {
         # snapd-desktop-integration is not available in stable for armhf yet
         # so use candidate for now
         case "${SNAP_NAME}" in
-            chromium) SNAP_CHANNEL="stable";;
-            cups) SNAP_CHANNEL="stable";;
+            chromium|cups) SNAP_CHANNEL="stable";;
             gnome-42-2204) SNAP_CHANNEL="stable";;
+            firmware-updater) SNAP_CHANNEL="edge";;
             snap-store) SNAP_CHANNEL="preview/edge";;
             snapd-desktop-integration) SNAP_CHANNEL="candidate";;
             ubuntu-desktop-installer) SNAP_CHANNEL="candidate";;
+            workshops) SNAP_CHANNEL="stable";;
             *) SNAP_CHANNEL="stable/ubuntu-${TARGET_UBUNTU_VERSION}";;
         esac
         snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
