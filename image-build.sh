@@ -29,10 +29,10 @@ TARGET_NAME="${TARGET_NAME,,}"
 MACHINE="/var/lib/machines/${TARGET_NAME}"
 
 # The text label shown in GRUB for booting into the live environment
-export GRUB_LIVEBOOT_LABEL="Try ${TARGET_DISTRO_NAME}"
+GRUB_LIVEBOOT_LABEL="Try ${TARGET_DISTRO_NAME}"
 
 # The text label shown in GRUB for starting installation
-export GRUB_INSTALL_LABEL="Install ${TARGET_DISTRO_NAME}"
+GRUB_INSTALL_LABEL="Install ${TARGET_DISTRO_NAME}"
 
 # Packages to be removed from the target system after installation completes succesfully
 TARGET_PACKAGE_REMOVE="
@@ -62,7 +62,6 @@ function host_setup() {
 }
 
 function bootstrap_container() {
-    # TODO: Use variables for ubuntu version
     if [ -d "${MACHINE}" ]; then
         machinespawn remove "${TARGET_NAME}"
     fi
@@ -91,7 +90,6 @@ function install_os() {
     machinespawn run "${TARGET_NAME}" apt-get -y install software-properties-common
 
     # Display manager
-    #  - Install yelp without recommends (early) to prevent texinfo getting installed
     machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install \
         lightdm lightdm-gtk-greeter yaru-theme-gtk yaru-theme-icon yaru-theme-sound \
         yaru-theme-unity
@@ -203,10 +201,6 @@ EOM
     # Display servers and compositors
     machinespawn run "${TARGET_NAME}" apt-get -y install \
         wayfire weston xwayland xorg
-
-    # Dev tools
-    #machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install \
-    #    dconf-editor gcolor3 lightdm-gtk-greeter-settings pavucontrol
 
     # Firefox ESR
     machinespawn run "${TARGET_NAME}" apt-add-repository -y ppa:mozillateam/ppa
