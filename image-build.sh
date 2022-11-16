@@ -202,10 +202,6 @@ EOM
     machinespawn run "${TARGET_NAME}" apt-get -y install \
         wayfire weston xwayland xorg
 
-    # Firefox ESR
-    machinespawn run "${TARGET_NAME}" apt-add-repository -y ppa:mozillateam/ppa
-    machinespawn run "${TARGET_NAME}" apt-get -y install firefox-esr
-
     # Wallpaper
     mkdir -p "${MACHINE}/usr/share/backgrounds"
     cp ubuntu-butterfly.png "${MACHINE}/usr/share/backgrounds/ubuntu-butterfly.png"
@@ -314,6 +310,144 @@ EOM
 
     # Plymouth
     machinespawn run "${TARGET_NAME}" apt-get -y install plymouth-theme-spinner
+}
+
+function snap_preseed() {
+    local SNAP_NAME="${1}"
+    local SNAP_CHANNEL="${2}"
+    local SNAP_CONFINEMENT=""
+    local SNAP_FILE=""
+
+    # Download a snap only once
+    if ls -1 "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"_*.snap >/dev/null 2>&1; then
+        return
+    fi
+
+    machinespawn run "${TARGET_NAME}" env SNAPPY_STORE_NO_CDN=1 UBUNTU_STORE_ARCH="${TARGET_ARCH}" snap download --target-directory=/var/lib/snapd/seed "${SNAP_NAME}" --channel="${SNAP_CHANNEL}"
+    mv -v "${MACHINE}"/var/lib/snapd/seed/*.assert "${MACHINE}"/var/lib/snapd/seed/assertions/
+    mv -v "${MACHINE}"/var/lib/snapd/seed/*.snap "${MACHINE}"/var/lib/snapd/seed/snaps/
+    if [ "${SNAP_NAME}" == "snapd" ]; then
+        touch "${MACHINE}/var/lib/snapd/seed/.snapd-explicit-install-stamp"
+    fi
+
+    # Add the snap to the seed.yaml
+    if [ ! -e "${MACHINE}"/var/lib/snapd/seed/seed.yaml ]; then
+        echo "snaps:" > "${MACHINE}"/var/lib/snapd/seed/seed.yaml
+    fi
+
+    cat <<EOF >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml
+  -
+    name: ${SNAP_NAME}
+    channel: ${SNAP_CHANNEL}
+EOF
+
+    # Process classic snaps
+    if [ -e "/tmp/${SNAP_NAME}.info" ]; then
+        SNAP_CONFINEMENT=$(grep confinement "/tmp/${SNAP_NAME}.info" | cut -d':' -f2 | sed 's/ //g')
+        echo "${SNAP_CONFINEMENT}"
+        case "${SNAP_CONFINEMENT}" in
+            *classic*) echo "    classic: true" >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml;;
+        esac
+    fi
+
+    echo -n "    file: " >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml
+    SNAP_FILE=$(ls -1 "${MACHINE}"/var/lib/snapd/seed/snaps/${SNAP_NAME}_*.snap)
+    basename "${SNAP_FILE}" >> "${MACHINE}"/var/lib/snapd/seed/seed.yaml
+}
+
+function install_snaps() {
+    local ACCOUNT_KEY=""
+    local BASE_SNAP=""
+    local SNAPS_THEME="snapd-desktop-integration gtk-common-themes"
+    local SNAPS_CHROMIUM="cups gnome-3-38-2004 chromium"
+    local SNAPS_FIREFOX="gnome-3-38-2004 firefox"
+    local SNAPS_STORE="gnome-42-2204 snap-store"
+    local SNAPS_INSTALLER="ubuntu-desktop-installer"
+    local SNAPS_ALL="${SNAPS_THEME} ${SNAPS_FIREFOX} ${SNAPS_STORE}"
+
+    local SNAP_CHANNEL=""
+    local SNAP_PRESEED_FAILED=0
+    # https://git.launchpad.net/livecd-rootfs/tree/live-build/functions#n491
+    # https://discourse.ubuntu.com/t/seeding-a-classic-ubuntu-image/19756
+    # https://forum.snapcraft.io/t/broken-dependency-of-content-snaps-during-seeding/11566
+    # https://bugs.launchpad.net/ubuntu-image/+bug/1958275
+
+    machinespawn run "${TARGET_NAME}" apt-get -y install xdelta3
+
+    # Prepare assertions
+    mkdir -p "${MACHINE}"/var/lib/snapd/seed/{assertions,snaps}
+    snap known --remote model series=16 model=generic-classic brand-id=generic > "${MACHINE}/var/lib/snapd/seed/assertions/model"
+    ACCOUNT_KEY=$(grep "^sign-key-sha3-384" "${MACHINE}/var/lib/snapd/seed/assertions/model" | cut -d':' -f2 | sed 's/ //g')
+    snap known --remote account-key public-key-sha3-384="${ACCOUNT_KEY}" > "${MACHINE}/var/lib/snapd/seed/assertions/account-key"
+    snap known --remote account account-id=generic > "${MACHINE}/var/lib/snapd/seed/assertions/account"
+
+    # Download the snaps
+    for SNAP_NAME in ${SNAPS_ALL}; do
+        # snapd-desktop-integration is not available in stable for armhf yet
+        case "${SNAP_NAME}" in
+            chromium) SNAP_CHANNEL="stable";;
+            cups) SNAP_CHANNEL="stable";;
+            gnome-42-2204) SNAP_CHANNEL="stable";;
+            snap-store) SNAP_CHANNEL="preview/edge";;
+            snapd-desktop-integration) SNAP_CHANNEL="candidate";;
+            ubuntu-desktop-installer) SNAP_CHANNEL="candidate";;
+            *) SNAP_CHANNEL="stable/ubuntu-${TARGET_UBUNTU_VERSION}";;
+        esac
+        snap_preseed "${SNAP_NAME}" "${SNAP_CHANNEL}"
+
+        # Download any required base snaps
+        if snap info --verbose "${MACHINE}"/var/lib/snapd/seed/snaps/"${SNAP_NAME}"*.snap > "/tmp/${SNAP_NAME}.info"; then
+            if grep -q '^base:' "/tmp/${SNAP_NAME}.info"; then
+                BASE_SNAP=$(awk '/^base:/ {print $2}' "/tmp/${SNAP_NAME}.info")
+                snap_preseed "${BASE_SNAP}" stable
+                case "${BASE_SNAP}" in
+                    core[0-9]*) snap_preseed snapd stable;;
+                esac
+            fi
+        fi
+    done
+
+    # Validate seed.yaml
+    if snap debug validate-seed "${MACHINE}"/var/lib/snapd/seed/seed.yaml; then
+        cat "${MACHINE}"/var/lib/snapd/seed/seed.yaml
+    else
+        echo "ERROR! seed.yaml validation failed."
+        exit 1
+    fi
+
+    # Preseed the snaps
+    #  - NOTE! This is how livecd-rootfs runs snap-preeseed, but it fails on
+    #  - armhf but the snap preseeding does complete during oem-setup.
+    #  - Disabled for armhf
+    # snap-preseed operates from outside the image being prepared and
+    # requires some mounts to be setup
+    if [ "${TARGET_ARCH}" != "armhf" ]; then
+        mount --rbind /dev "${MACHINE}/dev"
+        mount proc-live -t proc "${MACHINE}/proc"
+        mount sysfs-live -t sysfs "${MACHINE}/sys"
+        mount securityfs -t securityfs "${MACHINE}/sys/kernel/security"
+
+        /usr/lib/snapd/snap-preseed --reset "${MACHINE}"
+
+        if ! /usr/lib/snapd/snap-preseed "${MACHINE}"; then
+            SNAP_PRESEED_FAILED=1
+        fi
+
+        for MOUNT in "${MACHINE}/sys/kernel/security" "${MACHINE}/sys" "${MACHINE}/proc" "${MACHINE}/dev"; do
+            echo "unmounting: ${MOUNT}"
+            mount --make-private "${MOUNT}"
+            umount -l "${MOUNT}"
+            udevadm settle
+            sleep 5
+        done
+
+        if [ ${SNAP_PRESEED_FAILED} -eq 1 ]; then
+            echo "ERROR! snap-preseed failed."
+            exit 1
+        fi
+
+        machinespawn run "${TARGET_NAME}" apparmor_parser --skip-read-cache --write-cache --skip-kernel-load --verbose  -j $(nproc) /etc/apparmor.d
+    fi
 }
 
 function clean_up() {
@@ -492,4 +626,5 @@ EOF
 host_setup
 bootstrap_container
 install_debs
+install_snaps
 build_image
