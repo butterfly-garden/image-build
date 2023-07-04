@@ -48,7 +48,7 @@ function host_setup() {
     # Host tools
     apt-get -y install \
         binutils dosfstools grub-pc-bin grub-efi-amd64-bin mtools \
-        squashfs-tools wget unzip  xorriso
+        squashfs-tools wget unzip xorriso
 
     # Download machinespawn
     if ! command -v machinespawn >/dev/null 2>&1; then
@@ -85,13 +85,13 @@ function install_debs() {
         grub-gfxpayload-lists grub-pc grub-pc-bin grub2-common locales \
         ubuntu-butterfly-live-settings
 
-    # Install kernel
-    machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install "${TARGET_KERNEL_PACKAGE}"
-
     # Install Ubiquity - the legacy installer
     machinespawn run "${TARGET_NAME}" apt-get -y install \
         ubiquity ubiquity-casper ubiquity-frontend-gtk ubiquity-slideshow-ubuntu \
         ubiquity-ubuntu-artwork
+
+    # Install kernel
+    machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install "${TARGET_KERNEL_PACKAGE}"
 
     # Display manager
     machinespawn run "${TARGET_NAME}" apt-get -y --no-install-recommends install \
