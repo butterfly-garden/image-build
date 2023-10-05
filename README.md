@@ -1,3 +1,7 @@
+# This project is discontinued ☠️
+
+**Due to a change in personal circumstances with the founder of the project, we no longer have the time or motivation to work on Butterfly. If you are interested in a Flutter-based desktop then take a look at [dahliaOS](https://dahliaos.io/)**
+
 # Ubuntu Butterfly 🦋 image builder 📀
 
 This project is a work-in-progress 🚧 and far from complete, it builds OS images for Ubuntu Butterfly developers to tinker with. Approach with caution 🛑 **Certainly Ubuntu Butterfly is not a usable OS and the images available here are not representative of what Ubuntu Butterfly will become.** 🔮
