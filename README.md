@@ -14,6 +14,8 @@ sudo ./image-build.sh
 
 The `image-buiild.sh` script will install the required software on the host and then start and automated build. After a few minutes you should have a `ubuntu-butterfly.iso` ready for use which [`quickemu`](https://github.com/quickemu-project/quickemu) can run for you 😉
 
+If you choose to use `quickemu` to run the iso, you will (presently) need to [manually create a VM configuration file](https://github.com/quickemu-project/quickemu#other-operating-systems) for Ubuntu Butterfly. 
+
 ## BEWARE! 💥
 
  - A copy of [`machinespawn`](https://github.com/wimpysworld/machinespawn) will be dropped in `/usr/local/bin` if a copy is not found in your `$PATH`.
